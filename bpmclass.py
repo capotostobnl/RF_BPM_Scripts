@@ -474,8 +474,8 @@ class Bpm():
 
         #stat =  "%2s   " % (bpmnum+1)
         stat = f"{bpmnum + 1:2}"
-        stat += f'\033[{92 if self.ip_connected else 91}mip={self.ip_addr}'
-        stat += f'\033[{92 if self.moxa_connected else 91}mip={self.moxa_addr,":",self.moxa_port}'
+        stat += f"\033[{92 if self.ip_connected else 91}mip={self.ip_addr}   "
+        stat += f"\033[{92 if self.moxa_connected else 91}mip={self.moxa_addr}:{self.moxa_port}   "   
         #if self.ip_connected:
         #    stat += "\033[92mip=%s   " % (self.ip_addr)
         #else:
