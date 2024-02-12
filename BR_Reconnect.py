@@ -1,3 +1,5 @@
+"""Booster Reconnect script to toggle Waveform, 10Hz, and Control reconnect PVs
+Updated 2/12/2024 M. Capotosto"""
 #!/usr/bin/python
 
 #from epics import caput
