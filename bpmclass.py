@@ -1,5 +1,3 @@
-"""BPM Class
-Updated to Python3 1/31/2024 M. Capotosto"""
 #!/usr/bin/python
 import socket
 import sys
@@ -7,36 +5,32 @@ import binascii
 import struct
 import time
 import telnetlib
+from bpm_addresses import *
+from select import select
 import re
 from io import StringIO
-from select import select
-from bpm_addresses import *
+from epics import caget
 
 def print_status_header():
-    '''Prints BPM Status header'''
-    print()
-    print("bpm     ip               moxa              mode     fpga_ver  ublz_ver PLL Lock")
-    print("-------------------------------------------------------------------------------")
+   print()
+   print("bpm     ip               moxa              mode     fpga_ver  ublz_ver PLL Lock   Alarm Status")
+   print("----------------------------------------------------------------------------------------------")
 
 
 def spinning(timeout):
     round = 0
     type = 0
     while round != timeout:
-
-        if type == 0:
-            sys.stdout.write("\b/")
-        if type == 1:
-            sys.stdout.write("\b-")
-        if type == 2:
-            sys.stdout.write("\b\\")
-        if type == 3:
-            sys.stdout.write("\b|")
+ 
+        if type == 0: sys.stdout.write("\b/")
+        if type == 1: sys.stdout.write("\b-")
+        if type == 2: sys.stdout.write("\b\\")
+        if type == 3: sys.stdout.write("\b|")
         type += 1
-        if type == 4:
-            type = 0
-            round += 1
-            sys.stdout.write("\b*|")
+        if type == 4: 
+           type = 0
+           round += 1
+           sys.stdout.write("\b*|")
         sys.stdout.flush()
         time.sleep(0.25)
     #print"\b\b  Done"
@@ -44,24 +38,25 @@ def spinning(timeout):
 
 
 def prompt(timeout):
-    sys.stdout.write(">")
-    sys.stdout.flush()
+    sys.stdout.write(">");
+    sys.stdout.flush();
 
-    rlist, _, _ = select([sys.stdin], [], [], timeout)
+    rlist, _, _ = select([sys.stdin], [], [], timeout);
 
-    sys.stdout.write("\b\b")
-    sys.stdout.flush()
+    sys.stdout.write("\b\b");
+    sys.stdout.flush();
     if rlist:
-        s = str(sys.stdin.readline())
-        return s.strip("\r\n")
+        s = str(sys.stdin.readline());
+        return s.strip("\r\n");
     else:
-        return
+        return;
 
-
+	
 class Bpm():
     def __init__(self,addr):
+        self.alarm_status = "undefined"
         self.ip_connected = False
-        self.moxa_connected = False
+        self.moxa_connected = False 
         self.ip_addr = addr[0]
         self.moxa_addr = addr[1]
         self.moxa_port = addr[2]
@@ -80,15 +75,19 @@ class Bpm():
         #connect to moxa
         #self.moxa_connect()
         # connect to socket
-        #self.ip_connect()
+        #self.ip_connect() 
 
         #if self.ip_connected and self.moxa_connected:
 	#    pass
-            #print "Socket Connected: %s\tMoxa Connected:%s:%s" % (addr[0],addr[1],addr[2])
+            #print "Socket Connected: %s\tMoxa Connected:%s:%s" % (addr[0],addr[1],addr[2]) 
 
+    def get_alarm_status(self):
+        """Get alarm Status PV Value"""
+        pv = self.prefix+"Alarm-Sts"
+        self.alarm_status = caget(pv, as_string=True)
 
     def moxa_connect(self):
-        """connect to moxa"""
+	#connect to moxa
         try:
             self.tn = telnetlib.Telnet(self.moxa_addr,self.moxa_port,4)
             self.moxa_connected = True
@@ -97,91 +96,86 @@ class Bpm():
 
 
     def ip_connect(self):
-        '''connect to socket'''
+        # connect to socket
         attempts = 0
-        while not self.ip_connected and attempts < 3:
+        while self.ip_connected == False and attempts < 3:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             bpm_address = (self.ip_addr, 65000)
             attempts += 1
             try:
-                self.sock.settimeout(2)
-                self.sock.connect(bpm_address)
-                self.ip_connected = True
-                #print "ip=%s connected" % self.ip_addr
+               self.sock.settimeout(2)
+               self.sock.connect(bpm_address)
+               self.ip_connected = True
+               #print "ip=%s connected" % self.ip_addr
             except: #self.socket.error, msg:
-                time.sleep(1)
-                if self.sock:
-                    self.sock.close()
+               time.sleep(1) 
+               if self.sock:
+                   self.sock.close()
                    #print "ip=%s not connected" % self.ip_addr
                    #print "Could not open socket: "  #%s " % msg
 
     def ip_close(self):
-        '''Close socket'''
-        if self.ip_connected:
+         if self.ip_connected:
             self.sock.close()
             self.ip_connected = False
 
 
     def moxa_close(self):
-        '''Close moxa connection'''
         if self.moxa_connected:
-            self.tn.close()
-            self.moxa_connected = False
+           self.tn.close() 
+           self.moxa_connected = False 
 
     def __del__(self):
         #print "Goodbye"
         if self.moxa_connected:
-            self.tn.close()
+            self.tn.close() 
         if self.ip_connected:
             self.sock.close()
 
     def read_mode(self):
-        '''Read if BPM is in App or UPGRADE Modes'''
         if self.moxa_connected:
             self.tn.write(b"\r\n")
             time.sleep(0.2)
             resp = self.tn.read_very_eager()
             if resp.find(b"SR:") != -1:
-                self.area = "SR"
+               self.area = "SR"
             elif resp.find(b"BOOST") != -1:
-                self.area = "BOOST"
+               self.area = "BOOST"
             elif resp.find(b"LTB") != -1:
-                self.area = "LTB"
+               self.area = "LTB"
             elif resp.find(b"LINAC") != -1:
-                self.area = "LINAC"
+               self.area = "LINAC"
             elif resp.find(b"BTS") != -1:
-                self.area = "BTS"
+               self.area = "BTS"
             elif resp.find(b"FirmwareUpgrade") != -1:
-                self.area = "upgrade"
+               self.area = "upgrade"
             else:
-                self.area = "???"
+               self.area = "???"
             if resp.find(b"SR:") != -1 or resp.find(b"BOOST") != -1 or \
                resp.find(b"LTB:") != -1 or resp.find(b"LINAC:") != -1 or \
                resp.find(b"BTS:") != -1:
-                self.mode = "app"
+               self.mode = "app"
             elif resp.find(b"FirmwareUpgrade") != -1:
-                self.mode = "upgrade"
+               self.mode = "upgrade"
             else:
-                self.mode = "???"
+               self.mode = "???"
         else:
-            self.mode = "???"
+           self.mode = "???"
         #time.sleep(1)
 
     def switch_mode(self,mode):
-        '''Switch mode from APP to UPGRADE or vice versa'''
         if self.moxa_connected:
             #going to lose tcp connection
             self.ip_close()
-            self.read_mode()
+            self.read_mode()            
             if self.mode == "app"  and mode == "UPG":
-                print ("In App mode.  Switching to Upgrade mode...")
-                self.tn.write(b"reboot 1\r\n")
+               #print "In App mode.  Switching to Upgrade mode..."
+               self.tn.write(b"reboot 1\r\n")
             if self.mode == "upgrade" and mode == "APP":
-                print ("In Upgrade Mode.  Switching to APP mode...")
-                self.tn.write(b"reboot app\r\n")
+               #print "In Upgrade Mode.  Switching to APP mode..."
+               self.tn.write(b"reboot app\r\n")
 
     def get_SN(self):
-        '''Read Board S/N'''
         if self.moxa_connected:
             self.tn.write(b"\r\n")
             time.sleep(0.2)
@@ -194,9 +188,9 @@ class Bpm():
             resp = self.tn.read_until('Board S/N:',1)
             resp = self.tn.read_until('\r\n',1)
             try:
-                self.SN=int(resp)
+               self.SN=int(resp)
             except:
-                self.SN = -3
+               self.SN = -3
             resp = self.tn.read_until('#',1)
         else:
             self.SN = -2
@@ -206,20 +200,17 @@ class Bpm():
 #
 
     def reboot(self):
-        '''Reboot BPM into APP mode'''
         self.tn.write(b"\r\n")
         self.tn.read_until("#",1)
         self.tn.write(b"reboot app\r\n")
-
+        
     def ecode(self):
-        '''Set Event Code'''
         self.tn.write(b"\r\n")
         self.tn.read_until("#",1)
         stufftosend = (b"evr-set " + self.ecodeval + b" " + self.ecodeset + b"\r\n")
         self.tn.write(stufftosend)
 
     def eew(self):
-        '''Write to EEPROM'''
         self.tn.write(b"\r")
         time.sleep(0.25)
         resp = self.tn.read_very_eager()
@@ -243,21 +234,19 @@ class Bpm():
         self.tn.write(b"\r")
 
     def cmd(self):
-        '''Write Command to BPM'''
         self.tn.write(b"\r")
         time.sleep(0.25)
         resp = self.tn.read_very_eager()
         stufftosend = self.cmdval + "\r"
         self.tn.write(stufftosend)
-
+        
     def switch_mode_wait(self,mode):
-        '''Switch between APP and UPGRADE Modes'''
         self.tn.write(b"\r\n")
         time.sleep(0.5)
         resp = self.tn.read_very_eager()
         self.read_mode()
         if self.mode == "app"  and mode == "UPG":
-            print ("In App mode.  Switching to Upgrade mode...")
+            #print "In App mode.  Switching to Upgrade mode..."
             self.ip_close() #going to lose ip connection
             self.tn.write(b"reboot 1\r\n")
             time.sleep(0.5)
@@ -265,7 +254,7 @@ class Bpm():
             self.ip_connect()
             self.tn.write(b"\r\n")
         elif self.mode == "upgrade"  and mode == "APP":
-            print ("In Upgrade Mode.  Switching to APP mode...")
+            #print "In Upgrade Mode.  Switching to APP mode..."
             self.ip_close()
             self.tn.write(b"reboot app\r\n")
             time.sleep(0.5)
@@ -274,32 +263,31 @@ class Bpm():
             self.ip_connect()
             self.tn.write(b"\r\n")
         else:
-            print ("Current Mode = ", self.mode)
+            pass
+            #print "Current Mode = %s " % self.mode
 
 
     def start_update(self,update_type):
-        '''Firmware Update'''
-        fpgabit_blksize = 18033 #blk size = 512bytes, total len = 9304576
-        srec0_blksize   = 2579  #blk size = 512bytes, total len =
+        fpgabit_blksize = 18033 #blk size = 512bytes, total len = 9304576 
+        srec0_blksize   = 2579  #blk size = 512bytes, total len = 
         srec1_blksize   = 2200
 
 	# Update firmware
 	#print "Downloading Firmware..."
         if update_type == "fpga":
-            self.tn.write(b"bin\r\n")
-            self.blksize = fpgabit_blksize
+          self.tn.write(b"bin\r\n")
+          self.blksize = fpgabit_blksize
         elif update_type == "app":
-            self.tn.write(b"srec\r\n")
-            self.blksize = srec0_blksize
-            self.tn.write(b"0\r\n")
+          self.tn.write(b"srec\r\n")
+          self.blksize = srec0_blksize
+          self.tn.write(b"0\r\n")
         else:
-            print("Invalid Update type")
-            return "INV"
-        self.blocks_rcvd = 0
+          print("Invalid Update type")
+          return "INV"
+        self.blocks_rcvd = 0       
 
 
-    def check_update_download(self):
-        '''Check update download status'''
+    def check_update_download(self): 
         resp = self.tn.read_very_eager()
         if resp.find("Successfully done") == -1:
             self.blocks_rcvd += resp.count("#")
@@ -309,30 +297,28 @@ class Bpm():
         #print "Blocks Received = " + str(blocks_rcvd)
         #time.sleep(1)
         else:
-            perc_done = 100
+           perc_done = 100
         return perc_done
-
+    
     def check_update_eraseflash(self):
-        '''Check if flash erased successfully'''
         resp = self.tn.read_very_eager()
         if resp.find("Flash memory contents successfully") == -1:
-            return False
+           return False 
         else:
-            return True
-
+           return True
+        
     def check_update_progflash(self):
-        '''Check if flash programmed successfully'''
         resp = self.tn.read_very_eager()
         if resp.find("!!!PASS...!!!") == -1:
-            return False
+           return False 
         else:
-            return True
-
+           return True 
+ 
 
 
 #    def update(self,update_type):
-#        fpgabit_blksize = 18033 #blk size = 512bytes, total len = 9304576
-#        srec0_blksize   = 2579  #blk size = 512bytes, total len =
+#        fpgabit_blksize = 18033 #blk size = 512bytes, total len = 9304576 
+#        srec0_blksize   = 2579  #blk size = 512bytes, total len = 
 #        srec1_blksize   = 2200
 #
 #	# Update firmware
@@ -346,7 +332,7 @@ class Bpm():
 #	else:
 #	  print "Invalid Update type"
 #	  return "INV"
-#
+#        
 #        resp = ""
 #        blocks_rcvd = 0
 #
@@ -362,7 +348,7 @@ class Bpm():
 #            sys.stdout.flush()
 #            #print "Blocks Received = " + str(blocks_rcvd)
 #            time.sleep(1)
-#
+#            
 #
 #        print "\r\n"
 #        print "Erasing Flash..."
@@ -383,10 +369,9 @@ class Bpm():
 #           flash_success = 1
 
     def read_PLLock(self):
-        '''Read PLL Lock Status'''
         self.ublz_io_status_reg = self.read_reg(3,15)
         self.PLLock = "F"
-        if self.ip_connected:
+        if self.ip_connected == True:
             if self.ublz_io_status_reg & 2:
                 self.PLLock = "T"
         else:
@@ -394,13 +379,11 @@ class Bpm():
         return self.PLLock
 
     def read_fpgaver(self):
-        '''Read FPGA Version'''
         self.fpga_ver = self.read_reg(3,51)
         return self.fpga_ver
 
 
     def read_ublzver(self):
-        '''Read Microblaze Version'''
         self.read_mode()
         if self.mode == "app":
             self.ublz_ver = self.read_reg(6,113)
@@ -421,45 +404,45 @@ class Bpm():
 
 
 
-    def read_reg(self,opmode,address):
-        """ Return the BPM firmware version via TCP/IP """
-        # form the query packet to be sent to BPM
-        if self.ip_connected:
-            reg = -1
-            #print "ip=%s\topmode=%d\taddr=%d" % (self.ip_addr,opmode,address)
-            req_op = opmode
-            req_addr = address
-            req_len = 1
-            req_data = 8
-            command = (req_op, req_addr, req_len, req_data)
-            packer = struct.Struct('>IIII')
-            packed_data = packer.pack(*command)
+    def read_reg(self,opmode,address): 
+       """ Return the BPM firmware version via TCP/IP """
+       # form the query packet to be sent to BPM
+       if self.ip_connected == True: 
+           reg = -1
+           #print "ip=%s\topmode=%d\taddr=%d" % (self.ip_addr,opmode,address)
+           req_op = opmode
+           req_addr = address 
+           req_len = 1
+           req_data = 8 
+           command = (req_op, req_addr, req_len, req_data)
+           packer = struct.Struct('>IIII')
+           packed_data = packer.pack(*command)
 
-            try:
-                # Send data
-                #print 'Sending "%s"' % binascii.hexlify(packed_data), command
-                self.sock.sendall(packed_data)
-                time.sleep(0.5)
-                # Look for the response
-                data_received = 0
-                data_expected = 16
-                data = self.sock.recv(16)
-                #print 'Data received '
-                amount_received = len(data)
-                #print 'Bytes received %d' % amount_received
-                #print 'received "%s"' % binascii.hexlify(data)
-                reg = (struct.unpack('>I',data))[0]
-                #print str(type(fpga_ver))
-                #print 'received %d' % fpga_ver
-            except:
-                pass
-                #print "Error sending"
+           try:
+               # Send data
+               #print 'Sending "%s"' % binascii.hexlify(packed_data), command 
+               self.sock.sendall(packed_data)
+               time.sleep(0.5)
+               # Look for the response
+               data_received = 0
+               data_expected = 16
+               data = self.sock.recv(16)
+               #print 'Data received ' 
+               amount_received = len(data)
+               #print 'Bytes received %d' % amount_received
+               #print 'received "%s"' % binascii.hexlify(data)
+               reg = (struct.unpack('>I',data))[0]
+               #print str(type(fpga_ver))
+               #print 'received %d' % fpga_ver
+           except:
+               pass
+               #print "Error sending"
 
-            finally:
-                #sock.close()
-                return reg
-        else:
-            return -1
+           finally:
+               #sock.close()
+               return reg      
+       else:
+           return -1
 
 
 
@@ -471,26 +454,29 @@ class Bpm():
         self.read_fpgaver()
         self.read_ublzver()
         self.read_PLLock()
+        self.get_alarm_status()
 
-        #stat =  "%2s   " % (bpmnum+1)
-        stat = f"{bpmnum + 1:2}"
-        stat += f"\033[{92 if self.ip_connected else 91}mip={self.ip_addr}   "
-        stat += f"\033[{92 if self.moxa_connected else 91}mip={self.moxa_addr}:{self.moxa_port}   "   
-        #if self.ip_connected:
-        #    stat += "\033[92mip=%s   " % (self.ip_addr)
-        #else:
-        #    stat += "\033[91mip=%s   " % (self.ip_addr)
-        #if self.moxa_connected:
-        #    stat += "\033[92mmoxa=%s:%s   " % (self.moxa_addr,self.moxa_port)
-        #else:
-        #    stat += "\033[91mmoxa=%s:%s   " % (self.moxa_addr,self.moxa_port)
-        stat += "\033[0m"
+        stat =  "%2s   " % (bpmnum+1)
+        if self.ip_connected:
+           stat += "\033[92mip=%s   " % (self.ip_addr)
+        else:
+           stat += "\033[91mip=%s   " % (self.ip_addr)
+        if self.moxa_connected:
+           stat += "\033[92mmoxa=%s:%s   " % (self.moxa_addr,self.moxa_port)
+        else:
+           stat += "\033[91mmoxa=%s:%s   " % (self.moxa_addr,self.moxa_port)
+        stat += "\033[0m"       
         stat += self.area + "\t"
         stat += str(self.fpga_ver) + "\t"
         stat += str(self.ublz_ver) + "\t"
-        stat += self.PLLock + "\t"
-        self.stat = stat
-        return stat
+        stat += self.PLLock + "\t\t   "
+        if self.alarm_status == "OK":
+           stat += "\033[92m%s   " % (self.alarm_status) #GREEN Text
+        else:
+           stat += "\033[91m%s   " % (self.alarm_status) #RED Text
+        stat += "\033[0m"  #Clear formatting for next entry
+        self.stat = stat	
+        return stat 
 
 
     def sgain(self,data):
@@ -502,12 +488,12 @@ class Bpm():
         time.sleep(0.25)
         resp = self.tn.read_until(":",1)
         for c in range(len(data)):
-            self.tn.write(data[c])
-            time.sleep(0.01)
+           self.tn.write(data[c])
+           time.sleep(0.01)
         time.sleep(0.25)
         resp = self.tn.read_until("OK...",1)
         self.gain = resp[-5:]
-
+       
     def frsgain(self):
         """ read sgain data from bpm """
         self.tn.write(b"\r\n")
@@ -544,8 +530,7 @@ class Bpm():
                     resp2=resp2+line
 
             # fancy number search pattern
-            numeric_const_pattern = \
-            '[-+]? (?: (?: \d* \. \d+ ) | (?: \d+ \.? ) )(?: [Ee] [+-]? \d+ ) ?'
+            numeric_const_pattern = '[-+]? (?: (?: \d* \. \d+ ) | (?: \d+ \.? ) )(?: [Ee] [+-]? \d+ ) ?'
             rx = re.compile(numeric_const_pattern, re.VERBOSE)
 
             hexnum = re.findall(r"0x[0-9a-f]+",resp2)
@@ -560,13 +545,12 @@ class Bpm():
                     numbers[31],numbers[34],numbers[35],numbers[38],numbers[39],numbers[40],\
                     numbers[41],numbers[42],numbers[43],numbers[44],numbers[45],numbers[46],\
                     numbers[47],numbers[48],numbers[49],numbers[50],numbers[51],numbers[52],\
-                    numbers[53],numbers[54],numbers[55],numbers[56],numbers[57],hexnum[0],\
-                    numbers[60],numbers[61]]
+                    numbers[53],numbers[54],numbers[55],numbers[56],numbers[57],hexnum[0],numbers[60],numbers[61]]
             self.moxa_close()
 
 
 if __name__ == "__main__":
-
+    
 
     srcells = [c01, c02, c03, c04]
 
@@ -575,31 +559,29 @@ if __name__ == "__main__":
 
     total = len(sys.argv)
     if total != 3:
-        print("Usage:  bpm_class [status:update:mode]  <cell#> ")
-        sys.exit(0)
+       print("Usage:  bpm_class [status:update:mode]  <cell#> ")
+       sys.exit(0)
     else:
-        print("Mode = %s" % sys.argv[1])
+       print("Mode = %s" % sys.argv[1])
 
 
     if sys.argv[1] == "status":
-        if sys.argv[2].isdigit and int(sys.argv[2]) < 30 and int(sys.argv[2]) > 0:
-            cellnum = int(sys.argv[2])
-            cell = srcells[int(cellnum)]
-            print("BPM's in cell", cellnum)
+       if sys.argv[2].isdigit and int(sys.argv[2]) < 30 and int(sys.argv[2]) > 0:
+          cellnum = int(sys.argv[2])
+          cell = srcells[int(cellnum)]
+          print("BPM's in cell %s" % (cellnum))
 
-            #create objects, open connections
-            for i in range(0,6):
-                b.append(bpm(cell[i]))
+          #create objects, open connections
+          for i in range(0,6):    b.append(bpm(cell[i]))
 
-            #print basic status
-            print_status_header()
-            for i in range(0,6):
-                print(b[i].get_status())
+          #print basic status
+          print_status_header() 
+          for i in range(0,6):   print(b[i].get_status())
 
-        else:
-            print("Invalid Cell Number")
+       else:
+          print("Invalid Cell Number")
     else:
-        print("Invalid Option")
+       print("Invalid Option")
 
 
 
@@ -607,7 +589,7 @@ if __name__ == "__main__":
 #    sys.stdout.write( "Switching Cell to Upgrade Mode...  ")
 #    for i in range(0,6):
 #       b[i].switch_mode("UPG")
-#    spinning(15)
+#    spinning(15) 
 #    print
 #
 #    #re-connect to socket
@@ -619,7 +601,7 @@ if __name__ == "__main__":
 #    for i in range(0,6):
 #       print b[i].get_status()
 #
-#
+#    
 #    #update
 #    print "Updating..."
 #    for i in range(0,6):  b[i].start_update("app")
@@ -631,14 +613,14 @@ if __name__ == "__main__":
 #         print stat + "\r",
 #         sys.stdout.flush()
 #         time.sleep(1)
-#
+#         
 #    print "Erasing Flash..."
 #    while b[0].check_update_eraseflash() == False:
-#          spinning(1)
+#          spinning(1) 
 #
 #    print "Programming Flash..."
 #    while b[0].check_update_progflash() == False:
-#          spinning(1)
+#          spinning(1) 
 #
 #
 #
@@ -684,12 +666,12 @@ if __name__ == "__main__":
 #	      stat += "\033[92mmoxa=%s:%s   " % (b[i].moxa_addr,b[i].moxa_port)
 #	  else:
 #	      stat += "\033[91mmoxa=%s:%s   " % (b[i].moxa_addr,b[i].moxa_port)
-#	  stat += "\033[0m"
-#	  #print mode
+#	  stat += "\033[0m"     
+#	  #print mode    
 #	  stat += b[i].mode + "\t"
 #	  stat += str(b[i].fpga_ver) + "\t"
 #	  stat += str(b[i].ublz_ver) + "\t"
-#	  print stat
+#	  print stat 
 #
 
 
@@ -707,12 +689,12 @@ if __name__ == "__main__":
 #              stat += "\033[92mmoxa=%s:%s\t" % (b[i].moxa_addr,b[i].moxa_port)
 #          else:
 #              stat += "\033[91mmoxa=%s:%s\t" % (b[i].moxa_addr,b[i].moxa_port)
-#          print stat + "\033[0m"
+#          print stat + "\033[0m"     
 #
 #
 #
-#    #print mode (app or upgrade)
-#    print ""
+#    #print mode (app or upgrade) 
+#    print ""    
 #    for i in range(0,6):
 #          stat =  "bpm %s\tmode: " % (i)
 #          if b[i].moxa_connected:

@@ -94,6 +94,7 @@ for bpm in range(len(bpmlist)):
     t = Thread(target=b[bpm].get_status,args=(bpm,))
     threads.append(t)
     t.start()
+    time.sleep(0.1) #Delay to allow time for CAGet operation
 #wait for all threads to complete
 for i in threads:
     i.join()
