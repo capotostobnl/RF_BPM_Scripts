@@ -1,11 +1,19 @@
 """Lists of references for BPMs [ip address, telnet address, telnet port, PV prefix]"""
-
-linbpm01  = "10.0.142.1","10.0.133.204","4001","LN-BI{BPM:1}"
-linbpm02  = "10.0.142.2","10.0.133.204","4002","LN-BI{BPM:2}"
-linbpm03  = "10.0.142.3","10.0.133.204","4003","LN-BI{BPM:3}"
-linbpm04  = "10.0.142.4","10.0.133.204","4004","LN-BI{BPM:4}"
-linbpm05  = "10.0.142.5","10.0.133.204","4005","LN-BI{BPM:5}"
+#Updated for LINAC zBPM IP Addresses
+linbpm01  = "10.0.143.156","10.0.133.204","4001","LN-BI{BPM:1}"
+linbpm02  = "10.0.143.157","10.0.133.204","4002","LN-BI{BPM:2}"
+linbpm03  = "10.0.143.158","10.0.133.204","4003","LN-BI{BPM:3}"
+linbpm04  = "10.0.143.159","10.0.133.204","4004","LN-BI{BPM:4}"
+linbpm05  = "10.0.143.160","10.0.133.204","4005","LN-BI{BPM:5}"
 linbpm = [linbpm01, linbpm02, linbpm03, linbpm04, linbpm05 ]
+
+#v6 LINAC BPM IP Addresses:
+#linbpm01  = "10.0.142.1","10.0.133.204","4001","LN-BI{BPM:1}"
+#linbpm02  = "10.0.142.2","10.0.133.204","4002","LN-BI{BPM:2}"
+#linbpm03  = "10.0.142.3","10.0.133.204","4003","LN-BI{BPM:3}"
+#linbpm04  = "10.0.142.4","10.0.133.204","4004","LN-BI{BPM:4}"
+#linbpm05  = "10.0.142.5","10.0.133.204","4005","LN-BI{BPM:5}"
+#linbpm = [linbpm01, linbpm02, linbpm03, linbpm04, linbpm05 ]
 
 ltbbpm01  = "10.0.142.6","10.0.133.204","4006","LTB-BI{BPM:1}"
 ltbbpm02  = "10.0.142.7","10.0.133.204","4007","LTB-BI{BPM:2}"
