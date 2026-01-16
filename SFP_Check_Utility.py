@@ -28,6 +28,7 @@ CHUNK_SIZE = 100
 CW_FAULT_SUFFIXES = ["Sdi:Cw-LossCnt-I", "Sdi:CW_CrcErrorCnt-I", "Sdi:CW_LbLoPacketTO-I", "Sdi:CW_RePacketTO-I"]
 CCW_FAULT_SUFFIXES = ["Sdi:Cw-LossCnt-I", "Sdi:CW_CrcErrorCnt-I", "Sdi:CW_LbLoPacketTO-I", "Sdi:CW_RePacketTO-I"]
 SFP_SUFFIXES = ["SFP1:RxPow-I", "SFP2:RxPow-I"]
+EVR_SUFFIX = "SFP0:RxPow-I"  # <--- NEW EVR SUFFIX
 CLEAR_SUFFIX = "Sdi:RegClr-SP"
 
 class SFPAnalyzerApp:
@@ -50,10 +51,17 @@ class SFPAnalyzerApp:
         self.tabs = ttk.Notebook(self.frame_right)
         self.tabs.pack(fill=tk.BOTH, expand=True)
         
+        # TAB 1: SFP (CW/CCW)
         self.tab_sfp = tk.Frame(self.tabs)
-        self.tabs.add(self.tab_sfp, text="SFP Power Analysis")
+        self.tabs.add(self.tab_sfp, text="SFP Analysis")
         self.setup_sfp_table()
 
+        # TAB 2: EVR (SFP0)  <--- NEW TAB
+        self.tab_evr = tk.Frame(self.tabs)
+        self.tabs.add(self.tab_evr, text="EVR Analysis")
+        self.setup_evr_table()
+
+        # TAB 3: FAULTS
         self.tab_faults = tk.Frame(self.tabs)
         self.tabs.add(self.tab_faults, text="Active Faults")
         self.setup_fault_table()
@@ -93,18 +101,14 @@ class SFPAnalyzerApp:
     def sort_column(self, tv, col, reverse):
         """Sorts treeview contents when header is clicked."""
         l = [(tv.set(k, col), k) for k in tv.get_children('')]
-        
-        # Try to sort as numbers first, fallback to string
         try:
             l.sort(key=lambda t: float(t[0]), reverse=reverse)
         except ValueError:
             l.sort(reverse=reverse)
 
-        # Rearrange items in sorted order
         for index, (val, k) in enumerate(l):
             tv.move(k, '', index)
 
-        # Reset heading command to toggle reverse direction next time
         tv.heading(col, command=lambda: self.sort_column(tv, col, not reverse))
 
     def setup_sfp_table(self):
@@ -115,10 +119,9 @@ class SFPAnalyzerApp:
             self.tree_sfp.heading(col, text=col, command=lambda c=col: self.sort_column(self.tree_sfp, c, False))
             self.tree_sfp.column(col, anchor="center")
         
-        # Specific widths
         self.tree_sfp.column("Cell", width=60)
         self.tree_sfp.column("BPM", width=60)
-        self.tree_sfp.column("Link", width=60) # Shows CW/CCW
+        self.tree_sfp.column("Link", width=60)
         self.tree_sfp.column("Power", width=80)
         self.tree_sfp.column("Sigma", width=80)
         
@@ -130,6 +133,30 @@ class SFPAnalyzerApp:
         self.tree_sfp.tag_configure('dead', background='#ffcccc') 
         self.tree_sfp.tag_configure('weak', background='#ffeebb')
         self.tree_sfp.tag_configure('normal', background='white')
+
+    def setup_evr_table(self):
+        """Setup for the new EVR tab."""
+        cols = ("Cell", "BPM", "Link", "Power", "Sigma")
+        self.tree_evr = ttk.Treeview(self.tab_evr, columns=cols, show='headings')
+        
+        for col in cols:
+            self.tree_evr.heading(col, text=col, command=lambda c=col: self.sort_column(self.tree_evr, c, False))
+            self.tree_evr.column(col, anchor="center")
+        
+        self.tree_evr.column("Cell", width=60)
+        self.tree_evr.column("BPM", width=60)
+        self.tree_evr.column("Link", width=60)
+        self.tree_evr.column("Power", width=80)
+        self.tree_evr.column("Sigma", width=80)
+        
+        vsb = ttk.Scrollbar(self.tab_evr, orient="vertical", command=self.tree_evr.yview)
+        self.tree_evr.configure(yscrollcommand=vsb.set)
+        self.tree_evr.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        vsb.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        self.tree_evr.tag_configure('dead', background='#ffcccc') 
+        self.tree_evr.tag_configure('weak', background='#ffeebb')
+        self.tree_evr.tag_configure('normal', background='white')
 
     def setup_fault_table(self):
         cols = ("Cell", "BPM", "Fault", "Count")
@@ -161,10 +188,9 @@ class SFPAnalyzerApp:
                     except: bpm_num = "?"
                     bpm_name = prefix.split("}")[-1] if "}" in prefix else prefix
                     
-                    # SFP Targets
+                    # --- 1. SFP Targets (CW/CCW) ---
                     for suffix in SFP_SUFFIXES:
                         pv = f"{prefix}{suffix}"
-                        # DETERMINE CW/CCW LABEL
                         raw_sfp = suffix.split(":")[0] # "SFP1" or "SFP2"
                         link_label = "CW" if "SFP1" in raw_sfp else "CCW"
 
@@ -175,7 +201,16 @@ class SFPAnalyzerApp:
                             'bpm_num': bpm_num, 'link_label': link_label
                         })
                     
-                    # FAULT Targets
+                    # --- 2. EVR Targets (SFP0) ---
+                    evr_pv = f"{prefix}{EVR_SUFFIX}"
+                    targets.append({
+                        'pv': evr_pv, 'label': f"C{cell_id:02d} {bpm_name} EVR", 
+                        'type': 'EVR', 
+                        'cell': cell_id, 'cell_str': f"C{cell_id:02d}",
+                        'bpm_num': bpm_num, 'link_label': 'EVR'
+                    })
+
+                    # --- 3. FAULT Targets ---
                     for suffix in CW_FAULT_SUFFIXES + CCW_FAULT_SUFFIXES:
                         pv = f"{prefix}{suffix}"
                         short_fault = suffix.replace("Sdi:", "").replace("-I", "")
@@ -218,18 +253,29 @@ class SFPAnalyzerApp:
 
     def process_and_update(self, all_values):
         self.tree_sfp.delete(*self.tree_sfp.get_children())
+        self.tree_evr.delete(*self.tree_evr.get_children())
         self.tree_faults.delete(*self.tree_faults.get_children())
         self.ax.clear()
 
         results_list = list(zip(self.targets, all_values))
-        sfp_valid_values = [v for t, v in results_list if t['type']=='SFP' and v is not None and v > 1.0]
 
+        # --- STATS CALCULATION (SFP) ---
+        sfp_valid_values = [v for t, v in results_list if t['type']=='SFP' and v is not None and v > 1.0]
         if sfp_valid_values:
-            global_mean = statistics.mean(sfp_valid_values)
-            global_stdev = statistics.stdev(sfp_valid_values)
-            limit = global_mean - (SIGMA_THRESHOLD * global_stdev)
+            sfp_mean = statistics.mean(sfp_valid_values)
+            sfp_stdev = statistics.stdev(sfp_valid_values)
+            sfp_limit = sfp_mean - (SIGMA_THRESHOLD * sfp_stdev)
         else:
-            global_mean = 0; global_stdev = 1; limit = 0
+            sfp_mean = 0; sfp_stdev = 1; sfp_limit = 0
+
+        # --- STATS CALCULATION (EVR) ---
+        evr_valid_values = [v for t, v in results_list if t['type']=='EVR' and v is not None and v > 1.0]
+        if evr_valid_values:
+            evr_mean = statistics.mean(evr_valid_values)
+            evr_stdev = statistics.stdev(evr_valid_values)
+            evr_limit = evr_mean - (SIGMA_THRESHOLD * evr_stdev)
+        else:
+            evr_mean = 0; evr_stdev = 1; evr_limit = 0
 
         plot_data = []
         cell_boundaries = []
@@ -249,32 +295,51 @@ class SFPAnalyzerApp:
                     fault_count_total += 1
                 continue
 
-            # --- SFP ---
-            if target['cell'] != current_cell:
-                cell_boundaries.append(idx)
-                current_cell = target['cell']
+            # --- SFP (CW/CCW) PROCESSING ---
+            if target['type'] == 'SFP':
+                if target['cell'] != current_cell:
+                    cell_boundaries.append(idx)
+                    current_cell = target['cell']
 
-            sigma = 0.0
-            status_tag = 'normal'
-            color = 'blue'
+                sigma = 0.0
+                status_tag = 'normal'
+                color = 'blue'
 
-            if val < 1.0:
-                sigma = -99.9
-                status_tag = 'dead'
-                color = 'red'
-            else:
-                sigma = (val - global_mean) / global_stdev
-                if val < limit:
-                    status_tag = 'weak'
-                    color = 'orange'
+                if val < 1.0:
+                    sigma = -99.9
+                    status_tag = 'dead'
+                    color = 'red'
+                else:
+                    sigma = (val - sfp_mean) / sfp_stdev
+                    if val < sfp_limit:
+                        status_tag = 'weak'
+                        color = 'orange'
 
-            self.tree_sfp.insert("", "end", 
-                values=(target['cell_str'], target['bpm_num'], target['link_label'], f"{val:.1f}", f"{sigma:.2f}"), 
-                tags=(status_tag,))
-            
-            plot_data.append({'x': idx, 'y': val, 'c': color})
-            idx += 1
+                self.tree_sfp.insert("", "end", 
+                    values=(target['cell_str'], target['bpm_num'], target['link_label'], f"{val:.1f}", f"{sigma:.2f}"), 
+                    tags=(status_tag,))
+                
+                plot_data.append({'x': idx, 'y': val, 'c': color})
+                idx += 1
 
+            # --- EVR PROCESSING ---
+            if target['type'] == 'EVR':
+                sigma = 0.0
+                status_tag = 'normal'
+
+                if val < 1.0:
+                    sigma = -99.9
+                    status_tag = 'dead'
+                else:
+                    sigma = (val - evr_mean) / evr_stdev
+                    if val < evr_limit:
+                        status_tag = 'weak'
+
+                self.tree_evr.insert("", "end", 
+                    values=(target['cell_str'], target['bpm_num'], target['link_label'], f"{val:.1f}", f"{sigma:.2f}"), 
+                    tags=(status_tag,))
+
+        # --- PLOTTING (SFP Only to keep plot clean) ---
         if plot_data:
             x_vals = [p['x'] for p in plot_data]
             y_vals = [p['y'] for p in plot_data]
@@ -287,8 +352,8 @@ class SFPAnalyzerApp:
                 if c_num % 2 != 0:
                      self.ax.text(x_pos, max(y_vals)*1.02, f"C{c_num}", fontsize=8, color='gray')
 
-            self.ax.axhline(y=limit, color='red', linestyle='--', label='Limit')
-            self.ax.axhline(y=global_mean, color='green', linestyle='-', label='Mean')
+            self.ax.axhline(y=sfp_limit, color='red', linestyle='--', label='Limit')
+            self.ax.axhline(y=sfp_mean, color='green', linestyle='-', label='Mean')
             self.ax.legend(loc='upper right')
 
         self.ax.set_title(f"SFP Rx Power (Faults Found: {fault_count_total})")
