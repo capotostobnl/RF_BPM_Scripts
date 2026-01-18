@@ -6,8 +6,19 @@ from time import sleep
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import sys
 from math import sqrt
 
+input("Check that attenuators are already set to 0dB, or you will dump the beam...Return to continue...")
+
+#Disable AGC...
+AGC_Disable = input("Enter '0' if prepared to disable AGC..."
+
+if AGC_Disable = 0:
+    caput(SR-BI:AGCswitch-SP, 0, wait=True)
+else:
+    print(AGC must be disabled for script to run; exiting!)
+    sys.exit()
 #  create the subdirectories if necessary:
 if not os.path.exists("Old_SG_Tables"):
     os.makedirs("Old_SG_Tables")
@@ -42,7 +53,6 @@ GCsp = []
 GDsp = []
 RFsp = []
 BPMname = []
-
 
 # Here, arrays of all the required PVs are declared:
 for c in range(0, 30):
