@@ -6,19 +6,8 @@ from time import sleep
 import matplotlib.pyplot as plt
 import numpy as np
 import os
-import sys
 from math import sqrt
 
-input("Check that attenuators are already set to 0dB, or you will dump the beam...Return to continue...")
-
-#Disable AGC...
-AGC_Disable = input("Enter '0' if prepared to disable AGC..."
-
-if AGC_Disable = 0:
-    caput(SR-BI:AGCswitch-SP, 0, wait=True)
-else:
-    print(AGC must be disabled for script to run; exiting!)
-    sys.exit()
 #  create the subdirectories if necessary:
 if not os.path.exists("Old_SG_Tables"):
     os.makedirs("Old_SG_Tables")
@@ -29,11 +18,8 @@ if not os.path.exists("Images"):
 if not os.path.exists("Data"):
     os.makedirs("Data")
 
-#  cell[01,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30]
-# Nbpm = [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 9, 0, 0, 0, 0, 0, 0,
-#         0, 0, 0, 0, 0, 0,0]
-Nbpm = [6, 8, 8, 10, 9, 6, 10, 8, 8, 8, 8, 10, 6, 6, 6, 8, 9, 8, 10, 8, 8, 6,
-        9, 6, 6, 6, 8, 8, 10, 10]
+# cell [01,02,03,04,05,06, 07,08,09,10,11, 12,13,14,15,16,17,18, 19,20,21,22,23,24,25,26, 27,28,29,30]
+Nbpm = [6, 8, 8, 10, 9, 6, 10, 8, 8, 8, 8, 10, 6, 6, 6, 8, 9, 8, 10, 8, 8, 6, 9, 6, 6, 6, 8, 8, 10, 10]
 #  The mask below allows the user to mask off any BPM from this script.  For
 #  example, for Cell 1 if all 6 BPMs are to be scanned the mask would be 0x3F
 #  but if you want to disable BPM3 then the
@@ -41,8 +27,9 @@ Nbpm = [6, 8, 8, 10, 9, 6, 10, 8, 8, 8, 8, 10, 6, 6, 6, 8, 9, 8, 10, 8, 8, 6,
 
 #  cell[  1      2      3      4      5      6      7      8      9     10     11     12     13     14     15  ]  # noqa: E501
 Mask = [0x03F, 0x0FF, 0x0FF, 0x3FF, 0x1FF, 0x03F, 0x3FF, 0x0FF, 0x0FF, 0x0FF, 0x0FF, 0x3FF, 0x03F, 0x03F, 0x03F,  # noqa: E501
-        0x0FF, 0x1FF, 0x0FF, 0x3FF, 0x0FF, 0x0FF, 0x03F, 0x1FF, 0x03F, 0x03F, 0x03F, 0x0FF, 0x0FF, 0x03F, 0x3FF]  # noqa: E501
+        0x0FF, 0x1FF, 0x0FF, 0x3FF, 0x0FF, 0x0FF, 0x03F, 0x1FF, 0x03F, 0x03F, 0x03F, 0x0FF, 0x0FF, 0x3FF, 0x3FF]  # noqa: E501
 #  cell[  16     17     18     19     20     21     22     23     24     25     26     27     28     29     30 ]  # noqa: E501
+
 
 PUEpv = []
 RGAINpv = []
@@ -53,6 +40,7 @@ GCsp = []
 GDsp = []
 RFsp = []
 BPMname = []
+
 
 # Here, arrays of all the required PVs are declared:
 for c in range(0, 30):
